@@ -144,8 +144,9 @@ function extract_uploaded_image($uploadedFile, $imageRequired, &$errors)
         return null;
     }
 
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
-    $mimeType = $finfo->file($uploadedFile['tmp_name']);
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mimeType = finfo_file($finfo, $uploadedFile['tmp_name']);
+    finfo_close($finfo);
     $allowedMimeTypes = ['image/jpeg', 'image/png'];
 
     if (!in_array($mimeType, $allowedMimeTypes, true)) {

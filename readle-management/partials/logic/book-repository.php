@@ -2,195 +2,74 @@
 
 function fetch_all_books($connection)
 {
-    $result = $connection->query(
-        <<<SQL
-        SELECT
-            id,
-            book_name,
-            author_name,
-            price,
-            category,
-            quantity,
-            image_name,
-            image_mime,
-            1 AS has_image,
-            created_at,
-            updated_at
-        FROM books
-        ORDER BY id DESC
-        SQL
-    );
+    $sql = 'SELECT id, book_name, author_name, price, category, quantity, image_name, image_mime, 1 AS has_image, created_at, updated_at FROM books ORDER BY id DESC';
+    $result = mysqli_query($connection, $sql);
 
-    return $result->fetch_all(MYSQLI_ASSOC);
+    return mysqli_fetch_all($result, MYSQLI_ASSOC);
 }
 
 function find_book_by_id($connection, $bookId)
 {
-    $statement = $connection->prepare(
-        <<<SQL
-        SELECT
-            id,
-            book_name,
-            author_name,
-            price,
-            category,
-            quantity,
-            image_name,
-            image_mime,
-            1 AS has_image,
-            created_at,
-            updated_at
-        FROM books
-        WHERE id = ?
-        LIMIT 1
-        SQL
-    );
-    $statement->bind_param('i', $bookId);
-    $statement->execute();
-
-    $result = $statement->get_result();
-    $book = $result->fetch_assoc();
+    $bookId = mysqli_real_escape_string($connection, $bookId);
+    $sql = "SELECT id, book_name, author_name, price, category, quantity, image_name, image_mime, 1 AS has_image, created_at, updated_at FROM books WHERE id = '{$bookId}' LIMIT 1";
+    $result = mysqli_query($connection, $sql);
+    $book = mysqli_fetch_assoc($result);
 
     return $book ?: null;
 }
 
 function fetch_book_image($connection, $bookId)
 {
-    $statement = $connection->prepare(
-        'SELECT image_name, image_mime, book_image FROM books WHERE id = ? LIMIT 1'
-    );
-    $statement->bind_param('i', $bookId);
-    $statement->execute();
-
-    $result = $statement->get_result();
-    $image = $result->fetch_assoc();
+    $bookId = mysqli_real_escape_string($connection, $bookId);
+    $sql = "SELECT image_name, image_mime, book_image FROM books WHERE id = '{$bookId}' LIMIT 1";
+    $result = mysqli_query($connection, $sql);
+    $image = mysqli_fetch_assoc($result);
 
     return $image ?: null;
 }
 
 function insert_book($connection, $bookData, $imageData)
 {
-    $statement = $connection->prepare(
-        <<<SQL
-        INSERT INTO books (
-            book_name,
-            author_name,
-            price,
-            category,
-            quantity,
-            book_image,
-            image_name,
-            image_mime
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        SQL
-    );
+    $bookName = mysqli_real_escape_string($connection, $bookData['book_name']);
+    $authorName = mysqli_real_escape_string($connection, $bookData['author_name']);
+    $price = mysqli_real_escape_string($connection, $bookData['price']);
+    $category = mysqli_real_escape_string($connection, $bookData['category']);
+    $quantity = mysqli_real_escape_string($connection, $bookData['quantity']);
+    $imageBlob = mysqli_real_escape_string($connection, $imageData['content']);
+    $imageName = mysqli_real_escape_string($connection, $imageData['name']);
+    $imageMime = mysqli_real_escape_string($connection, $imageData['mime']);
+    $sql = "INSERT INTO books (book_name, author_name, price, category, quantity, book_image, image_name, image_mime) VALUES ('{$bookName}', '{$authorName}', '{$price}', '{$category}', '{$quantity}', '{$imageBlob}', '{$imageName}', '{$imageMime}')";
+    mysqli_query($connection, $sql);
 
-    $bookName = $bookData['book_name'];
-    $authorName = $bookData['author_name'];
-    $price = $bookData['price'];
-    $category = $bookData['category'];
-    $quantity = $bookData['quantity'];
-    $imageBlob = null;
-    $imageName = $imageData['name'];
-    $imageMime = $imageData['mime'];
-
-    $statement->bind_param(
-        'ssdsibss',
-        $bookName,
-        $authorName,
-        $price,
-        $category,
-        $quantity,
-        $imageBlob,
-        $imageName,
-        $imageMime
-    );
-    $statement->send_long_data(5, $imageData['content']);
-    $statement->execute();
-
-    return $statement->insert_id;
+    return mysqli_insert_id($connection);
 }
 
 function update_book($connection, $bookId, $bookData, $imageData = null)
 {
+    $bookId = mysqli_real_escape_string($connection, $bookId);
+    $bookName = mysqli_real_escape_string($connection, $bookData['book_name']);
+    $authorName = mysqli_real_escape_string($connection, $bookData['author_name']);
+    $price = mysqli_real_escape_string($connection, $bookData['price']);
+    $category = mysqli_real_escape_string($connection, $bookData['category']);
+    $quantity = mysqli_real_escape_string($connection, $bookData['quantity']);
+
     if ($imageData !== null) {
-        $statement = $connection->prepare(
-            <<<SQL
-            UPDATE books
-            SET
-                book_name = ?,
-                author_name = ?,
-                price = ?,
-                category = ?,
-                quantity = ?,
-                book_image = ?,
-                image_name = ?,
-                image_mime = ?
-            WHERE id = ?
-            SQL
-        );
-
-        $bookName = $bookData['book_name'];
-        $authorName = $bookData['author_name'];
-        $price = $bookData['price'];
-        $category = $bookData['category'];
-        $quantity = $bookData['quantity'];
-        $imageBlob = null;
-        $imageName = $imageData['name'];
-        $imageMime = $imageData['mime'];
-
-        $statement->bind_param(
-            'ssdsibssi',
-            $bookName,
-            $authorName,
-            $price,
-            $category,
-            $quantity,
-            $imageBlob,
-            $imageName,
-            $imageMime,
-            $bookId
-        );
-        $statement->send_long_data(5, $imageData['content']);
-        $statement->execute();
+        $imageBlob = mysqli_real_escape_string($connection, $imageData['content']);
+        $imageName = mysqli_real_escape_string($connection, $imageData['name']);
+        $imageMime = mysqli_real_escape_string($connection, $imageData['mime']);
+        $sql = "UPDATE books SET book_name = '{$bookName}', author_name = '{$authorName}', price = '{$price}', category = '{$category}', quantity = '{$quantity}', book_image = '{$imageBlob}', image_name = '{$imageName}', image_mime = '{$imageMime}' WHERE id = '{$bookId}'";
+        mysqli_query($connection, $sql);
 
         return;
     }
 
-    $statement = $connection->prepare(
-        <<<SQL
-        UPDATE books
-        SET
-            book_name = ?,
-            author_name = ?,
-            price = ?,
-            category = ?,
-            quantity = ?
-        WHERE id = ?
-        SQL
-    );
-
-    $bookName = $bookData['book_name'];
-    $authorName = $bookData['author_name'];
-    $price = $bookData['price'];
-    $category = $bookData['category'];
-    $quantity = $bookData['quantity'];
-
-    $statement->bind_param(
-        'ssdsii',
-        $bookName,
-        $authorName,
-        $price,
-        $category,
-        $quantity,
-        $bookId
-    );
-    $statement->execute();
+    $sql = "UPDATE books SET book_name = '{$bookName}', author_name = '{$authorName}', price = '{$price}', category = '{$category}', quantity = '{$quantity}' WHERE id = '{$bookId}'";
+    mysqli_query($connection, $sql);
 }
 
 function delete_book($connection, $bookId)
 {
-    $statement = $connection->prepare('DELETE FROM books WHERE id = ?');
-    $statement->bind_param('i', $bookId);
-    $statement->execute();
+    $bookId = mysqli_real_escape_string($connection, $bookId);
+    $sql = "DELETE FROM books WHERE id = '{$bookId}'";
+    mysqli_query($connection, $sql);
 }

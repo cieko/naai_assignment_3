@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 if (!function_exists('escape')) {
-    function escape(mixed $value): string
+    function escape($value)
     {
         return htmlspecialchars((string) $value, ENT_QUOTES, 'UTF-8');
     }
@@ -27,14 +27,15 @@ $brandStats = [
 ];
 $dbError = '';
 
-$connection = @new mysqli($dbHost, $dbUser, $dbPassword, $dbName);
+$conn = mysqli_connect($dbHost, $dbUser, $dbPassword, $dbName);
 
-if ($connection->connect_error) {
-    $dbError = 'Our featured collection is unavailable right now. Please check back shortly.';
+if (!$conn) {
+    die('Connection failed: ' . mysqli_connect_error());
 } else {
-    $connection->set_charset('utf8mb4');
+    mysqli_set_charset($conn, 'utf8mb4');
 
-    $statsResult = $connection->query(
+    $statsResult = mysqli_query(
+        $conn,
         'SELECT 
             COUNT(*) AS total_books,
             COALESCE(SUM(quantity), 0) AS total_stock,
@@ -43,16 +44,17 @@ if ($connection->connect_error) {
     );
 
     if ($statsResult instanceof mysqli_result) {
-        $statsRow = $statsResult->fetch_assoc();
+        $statsRow = mysqli_fetch_assoc($statsResult);
 
         if ($statsRow) {
-            $stats['total_books'] = (int) $statsRow['total_books'];
-            $stats['total_stock'] = (int) $statsRow['total_stock'];
-            $stats['total_categories'] = (int) $statsRow['total_categories'];
+            $stats['total_books'] = $statsRow['total_books'];
+            $stats['total_stock'] = $statsRow['total_stock'];
+            $stats['total_categories'] = $statsRow['total_categories'];
         }
     }
 
-    $booksResult = $connection->query(
+    $booksResult = mysqli_query(
+        $conn,
         'SELECT id, book_name, author_name, price, category, quantity, book_image, image_name, image_mime
         FROM books
         ORDER BY created_at DESC
@@ -60,7 +62,7 @@ if ($connection->connect_error) {
     );
 
     if ($booksResult instanceof mysqli_result) {
-        while ($book = $booksResult->fetch_assoc()) {
+        while ($book = mysqli_fetch_assoc($booksResult)) {
             $bookImageSource = '';
 
             if (!empty($book['book_image']) && !empty($book['image_mime'])) {
@@ -68,17 +70,17 @@ if ($connection->connect_error) {
             }
 
             $books[] = [
-                'id' => (int) $book['id'],
+                'id' => $book['id'],
                 'book_name' => $book['book_name'],
                 'author_name' => $book['author_name'],
-                'price' => (float) $book['price'],
+                'price' => $book['price'],
                 'category' => $book['category'],
-                'quantity' => (int) $book['quantity'],
+                'quantity' => $book['quantity'],
                 'image_name' => $book['image_name'],
                 'image_src' => $bookImageSource,
             ];
         }
     }
 
-    $connection->close();
+    mysqli_close($conn);
 }
